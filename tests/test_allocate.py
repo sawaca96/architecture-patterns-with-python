@@ -2,16 +2,14 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.model import Batch, OrderLine, OutOfStock, allocate
+from app.models import Batch, Orderline, OutOfStock, allocate
 
 
 def test_perfers_current_stock_batches_to_shipments() -> None:
     # Given
-    in_stock_batch = Batch("in-stock-batch", "RETRO-CLOCK", 100, eta=None)
-    shipment_batch = Batch(
-        "shipment-batch", "RETRO-CLOCK", 100, eta=date.today() + timedelta(days=1)
-    )
-    line = OrderLine("order1", "RETRO-CLOCK", 10)
+    in_stock_batch = Batch("in-stock-batch", "RETRO-CLOCK", 100, None)
+    shipment_batch = Batch("shipment-batch", "RETRO-CLOCK", 100, date.today() + timedelta(days=1))
+    line = Orderline("line", "RETRO-CLOCK", 10)
 
     # When
     allocate(line, [in_stock_batch, shipment_batch])
@@ -26,7 +24,7 @@ def test_prefers_earlier_batches() -> None:
     earliest = Batch("speedy-batch", "MINIMALIST-SPOON", 100, eta=date.today())
     medium = Batch("normal-batch", "MINIMALIST-SPOON", 100, eta=date.today() + timedelta(days=1))
     latest = Batch("slow-batch", "MINIMALIST-SPOON", 100, eta=date.today() + timedelta(days=2))
-    line = OrderLine("order1", "MINIMALIST-SPOON", 10)
+    line = Orderline("line", "MINIMALIST-SPOON", 10)
 
     # When
     allocate(line, [medium, earliest, latest])
@@ -43,7 +41,7 @@ def test_returns_allocated_batch_ref() -> None:
     shipment_batch = Batch(
         "shipment-batch-ref", "HIGHBROW-POSTER", 100, eta=date.today() + timedelta(days=1)
     )
-    line = OrderLine("order1", "HIGHBROW-POSTER", 10)
+    line = Orderline("order1", "HIGHBROW-POSTER", 10)
 
     # When
     allocation = allocate(line, [in_stock_batch, shipment_batch])
@@ -55,8 +53,8 @@ def test_returns_allocated_batch_ref() -> None:
 def test_raises_out_of_stock_exception_if_cannot_allocate() -> None:
     # Given
     batch = Batch("batch1", "SMALL-FORK", 10, eta=None)
-    allocate(OrderLine("order1", "SMALL-FORK", 10), [batch])
+    allocate(Orderline("order1", "SMALL-FORK", 10), [batch])
 
     # When & Then
     with pytest.raises(OutOfStock, match="SMALL-FORK"):
-        allocate(OrderLine("order2", "SMALL-FORK", 1), [batch])
+        allocate(Orderline("order2", "SMALL-FORK", 1), [batch])
