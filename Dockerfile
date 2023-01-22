@@ -15,7 +15,7 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y \
     curl \
     build-essential
-ENV POETRY_VERSION=1.2.0
+ENV POETRY_VERSION=1.3.2
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
 FROM base as dev

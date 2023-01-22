@@ -1,15 +1,16 @@
 from datetime import date, timedelta
+from uuid import UUID, uuid4
 
 import pytest
 
-from app.models import Batch, Orderline, OutOfStock, allocate
+from app.models import Batch, OrderLine, OutOfStock, allocate
 
 
-def test_perfers_current_stock_batches_to_shipments() -> None:
+def test_perfers_current_stock_batches_to_allocate() -> None:
     # Given
-    in_stock_batch = Batch("in-stock-batch", "RETRO-CLOCK", 100, None)
-    shipment_batch = Batch("shipment-batch", "RETRO-CLOCK", 100, date.today() + timedelta(days=1))
-    line = Orderline("line", "RETRO-CLOCK", 10)
+    in_stock_batch = Batch(uuid4(), "RETRO-CLOCK", 100, None)
+    shipment_batch = Batch(uuid4(), "RETRO-CLOCK", 100, date.today() + timedelta(days=1))
+    line = OrderLine(id=UUID("5dfffbc2-fca9-49ef-a1c6-bfaba18e0fee"), sku="RETRO-CLOCK", qty=10)
 
     # When
     allocate(line, [in_stock_batch, shipment_batch])
@@ -21,10 +22,10 @@ def test_perfers_current_stock_batches_to_shipments() -> None:
 
 def test_prefers_earlier_batches() -> None:
     # Given
-    earliest = Batch("speedy-batch", "MINIMALIST-SPOON", 100, eta=date.today())
-    medium = Batch("normal-batch", "MINIMALIST-SPOON", 100, eta=date.today() + timedelta(days=1))
-    latest = Batch("slow-batch", "MINIMALIST-SPOON", 100, eta=date.today() + timedelta(days=2))
-    line = Orderline("line", "MINIMALIST-SPOON", 10)
+    earliest = Batch(uuid4(), "MINIMALIST-SPOON", 100, eta=date.today())
+    medium = Batch(uuid4(), "MINIMALIST-SPOON", 100, eta=date.today() + timedelta(days=1))
+    latest = Batch(uuid4(), "MINIMALIST-SPOON", 100, eta=date.today() + timedelta(days=2))
+    line = OrderLine(id=uuid4(), sku="MINIMALIST-SPOON", qty=10)
 
     # When
     allocate(line, [medium, earliest, latest])
@@ -37,24 +38,22 @@ def test_prefers_earlier_batches() -> None:
 
 def test_returns_allocated_batch_ref() -> None:
     # Given
-    in_stock_batch = Batch("in-stock-batch-ref", "HIGHBROW-POSTER", 100, eta=None)
-    shipment_batch = Batch(
-        "shipment-batch-ref", "HIGHBROW-POSTER", 100, eta=date.today() + timedelta(days=1)
-    )
-    line = Orderline("order1", "HIGHBROW-POSTER", 10)
+    in_stock_batch = Batch(uuid4(), "HIGHBROW-POSTER", 100, eta=None)
+    shipment_batch = Batch(uuid4(), "HIGHBROW-POSTER", 100, eta=date.today() + timedelta(days=1))
+    line = OrderLine(id=uuid4(), sku="HIGHBROW-POSTER", qty=10)
 
     # When
-    allocation = allocate(line, [in_stock_batch, shipment_batch])
+    batch_id = allocate(line, [in_stock_batch, shipment_batch])
 
     # Then
-    assert allocation == in_stock_batch.reference
+    assert batch_id == in_stock_batch.id
 
 
 def test_raises_out_of_stock_exception_if_cannot_allocate() -> None:
     # Given
-    batch = Batch("batch1", "SMALL-FORK", 10, eta=None)
-    allocate(Orderline("order1", "SMALL-FORK", 10), [batch])
+    batch = Batch(uuid4(), "SMALL-FORK", 10, eta=None)
+    allocate(OrderLine(id=uuid4(), sku="SMALL-FORK", qty=10), [batch])
 
     # When & Then
     with pytest.raises(OutOfStock, match="SMALL-FORK"):
-        allocate(Orderline("order2", "SMALL-FORK", 1), [batch])
+        allocate(OrderLine(id=uuid4(), sku="SMALL-FORK", qty=1), [batch])
