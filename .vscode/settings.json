@@ -11,12 +11,6 @@
       "source.organizeImports": true
     },
   },
-  "isort.args": [
-    "--profile",
-    "black",
-    "--line-length",
-    "100"
-  ],
   "git.branchProtection": [
     "main"
   ],
