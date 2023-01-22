@@ -1,8 +1,8 @@
 from uuid import UUID
 
-from app import models
-from app.models import OrderLine
-from app.repository import BatchAbstractRepository
+from app.allocation.adapters.repository import BatchAbstractRepository
+from app.allocation.domain import models
+from app.allocation.domain.models import OrderLine
 
 
 class InvalidSku(Exception):

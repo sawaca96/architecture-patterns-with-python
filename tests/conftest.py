@@ -6,9 +6,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import clear_mappers
 
+from app.allocation.adapters.db import DB
+from app.allocation.adapters.orm import metadata, start_mappers
 from app.config import get_config
-from app.db import DB
-from app.orm import metadata, start_mappers
 
 config = get_config()
 db = DB(config.PG_DSN)

@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app import models
+from app.allocation.domain import models
 
 
 async def test_order_line_mapper_can_load_lines(session: AsyncSession) -> None:

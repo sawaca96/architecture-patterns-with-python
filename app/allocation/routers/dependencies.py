@@ -4,9 +4,9 @@ from collections.abc import AsyncGenerator
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.allocation.adapters.db import DB
+from app.allocation.adapters.repository import BatchAbstractRepository, PGBatchRepository
 from app.config import get_config
-from app.db import DB
-from app.repository import BatchAbstractRepository, PGBatchRepository
 
 config = get_config()
 

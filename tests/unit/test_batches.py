@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.models import Batch, OrderLine
+from app.allocation.domain.models import Batch, OrderLine
 
 
 def test_allocating_to_a_batch_reduces_available_quantity() -> None:

@@ -2,8 +2,9 @@ from uuid import UUID
 
 import pytest
 
-from app import models, services
-from app.repository import BatchAbstractRepository
+from app.allocation.adapters.repository import BatchAbstractRepository
+from app.allocation.domain import models
+from app.allocation.service_layer import services
 
 
 class FakeRepository(BatchAbstractRepository):

@@ -3,7 +3,8 @@ from uuid import UUID
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import models, repository
+from app.allocation.adapters import repository
+from app.allocation.domain import models
 
 
 async def test_repository_can_save_a_batch_with_allocations(session: AsyncSession) -> None:

@@ -1,6 +1,6 @@
+from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from typing import Any
-from collections.abc import AsyncGenerator, Generator
 from uuid import UUID, uuid4
 
 import pytest
@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from app.main import app
-from app.orm import metadata
+from app.allocation.adapters.orm import metadata
+from app.allocation.routers.main import app
 
 
 @pytest.fixture(scope="session")

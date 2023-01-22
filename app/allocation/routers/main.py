@@ -2,9 +2,10 @@ from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, HTTPException
 
-from app import models, services
-from app.dependencies import repository
-from app.repository import BatchAbstractRepository
+from app.allocation.adapters.repository import BatchAbstractRepository
+from app.allocation.domain import models
+from app.allocation.routers.dependencies import repository
+from app.allocation.service_layer import services
 
 app = FastAPI()
 

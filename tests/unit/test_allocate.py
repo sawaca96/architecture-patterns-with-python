@@ -3,7 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.models import Batch, OrderLine, OutOfStock, allocate
+from app.allocation.domain.models import Batch, OrderLine, OutOfStock, allocate
 
 
 def test_perfers_current_stock_batches_to_allocate() -> None:
