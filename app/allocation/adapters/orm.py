@@ -2,7 +2,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import registry, relationship
 
-from app import models
+from app.allocation.domain import models
 
 mapper_registry = registry()
 metadata = mapper_registry.metadata
@@ -20,7 +20,7 @@ batch_table = sa.Table(
     metadata,
     sa.Column("id", UUID(as_uuid=True), primary_key=True),
     sa.Column("sku", sa.String),
-    sa.Column("purchased_quantity", sa.Integer),
+    sa.Column("qty", sa.Integer),
     sa.Column("eta", sa.Date, nullable=True),
 )
 

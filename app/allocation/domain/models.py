@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
-from uuid import UUID
+from uuid import UUID, uuid4
 
 
 class OutOfStock(Exception):
@@ -18,21 +18,20 @@ def allocate(line: OrderLine, batches: list[Batch]) -> UUID:
         raise OutOfStock(f"Out of stock for sku {line.sku}")
 
 
-@dataclass(unsafe_hash=True, kw_only=True)  # TODO: kw_only를 언제 써야 할까?
+@dataclass(unsafe_hash=True, kw_only=True)
 class OrderLine:
-    id: UUID
+    id: UUID = field(default_factory=uuid4)
     sku: str
     qty: int
 
 
+@dataclass(kw_only=True)
 class Batch:
-    def __init__(self, id: UUID, sku: str, qty: int, eta: date | None) -> None:
-        # TODO: id 값 업으면 기본 값 채우기
-        self.id = id
-        self.sku = sku
-        self.eta = eta
-        self.purchased_quantity = qty
-        self.allocations: set[OrderLine] = set()
+    id: UUID = field(default_factory=uuid4)
+    sku: str
+    eta: date = None
+    qty: int
+    allocations: set[OrderLine] = field(default_factory=lambda: set())
 
     def __repr__(self) -> str:
         return f"<Batch {self.id}>"
@@ -66,7 +65,7 @@ class Batch:
 
     @property
     def available_quantity(self) -> int:
-        return self.purchased_quantity - self.allocated_quantity
+        return self.qty - self.allocated_quantity
 
     def can_allocate(self, line: OrderLine) -> bool:
         return (

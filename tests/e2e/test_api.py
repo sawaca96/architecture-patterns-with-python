@@ -1,6 +1,6 @@
+from collections.abc import AsyncGenerator, Generator
 from datetime import date
 from typing import Any
-from collections.abc import AsyncGenerator, Generator
 from uuid import UUID, uuid4
 
 import pytest
@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
-from app.main import app
-from app.orm import metadata
+from app.allocation.adapters.orm import metadata
+from app.allocation.routers.main import app
 
 
 @pytest.fixture(scope="session")
@@ -33,6 +33,15 @@ async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
         await session.execute(table.delete())
 
 
+async def test_add_batch_returns_201(client: TestClient) -> None:
+    # Given
+    res = client.post("/batches", json={"batch_id": str(uuid4()), "sku": "SKU", "quantity": 3})
+
+    # Then
+    assert res.status_code == 201
+    assert res.json() == {"message": "success"}
+
+
 async def test_allocate_api_returns_201_and_allocated_batch(
     session: AsyncSession, client: TestClient
 ) -> None:
@@ -44,10 +53,7 @@ async def test_allocate_api_returns_201_and_allocated_batch(
     ]
     for id, sku, qty, eta in batches:
         await session.execute(
-            sa.text(
-                "INSERT INTO batch (id, sku, purchased_quantity, eta) "
-                "VALUES (:id, :sku, :qty, :eta)"
-            ),
+            sa.text("INSERT INTO batch (id, sku, qty, eta) " "VALUES (:id, :sku, :qty, :eta)"),
             dict(id=id, sku=sku, qty=qty, eta=eta),
         )
         await session.execute(
@@ -57,7 +63,7 @@ async def test_allocate_api_returns_201_and_allocated_batch(
         await session.commit()
 
     # When
-    res = client.post("/allocate", json={"order_id": str(uuid4()), "sku": "SKU", "quantity": 3})
+    res = client.post("/allocate", json={"line_id": str(uuid4()), "sku": "SKU", "quantity": 3})
 
     # Then: order line is allocated to the batch with earliest eta, and status code 201
     assert res.status_code == 201
@@ -69,7 +75,7 @@ async def test_allocate_api_returns_400_and_error_message_if_invalid_sku(
 ) -> None:
     # When: request with invalid sku
     res = client.post(
-        "/allocate", json={"order_id": str(uuid4()), "sku": "NOT-EXIST-SKU", "quantity": 3}
+        "/allocate", json={"line_id": str(uuid4()), "sku": "NOT-EXIST-SKU", "quantity": 3}
     )
 
     # Then: status code 400 and error message

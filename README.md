@@ -17,3 +17,4 @@ Reference https://github.com/cosmicpython/code
 - [✅ CHAPTER_01 domain model](https://github.com/sawaca96/architecture-patterns-with-python/commit/fb604a0bc25b70a98e16dc4185eb8c9eb96ceb3d)
 - [✅ CHAPTER_02 repository](https://github.com/sawaca96/architecture-patterns-with-python/commit/fb604a0bc25b70a98e16dc4185eb8c9eb96ceb3d)
 - [4️⃣ CHAPTER_04 usecase](https://github.com/sawaca96/architecture-patterns-with-python/pull/1)
+- [6️⃣ CHAPTER_06 unit of work](https://github.com/sawaca96/architecture-patterns-with-python/pull/2#pullrequestreview-1265028411)
