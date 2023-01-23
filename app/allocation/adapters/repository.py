@@ -3,12 +3,12 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import subqueryload
+from sqlalchemy.orm import selectinload, subqueryload
 
 from app.allocation.domain import models
 
 
-class BatchAbstractRepository(abc.ABC):
+class AbstractBatchRepository(abc.ABC):
     @abc.abstractmethod
     async def add(self, batch: models.Batch) -> None:
         raise NotImplementedError
@@ -22,7 +22,7 @@ class BatchAbstractRepository(abc.ABC):
         raise NotImplementedError
 
 
-class PGBatchRepository(BatchAbstractRepository):
+class PGBatchRepository(AbstractBatchRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
@@ -31,7 +31,14 @@ class PGBatchRepository(BatchAbstractRepository):
         await self._session.flush()
 
     async def get(self, id: UUID) -> models.Batch:
-        return await self._session.get(models.Batch, id)
+        # async sqlalchemy doesn't support relationship
+        # It raise 'greenlet_spawn has not been called; can't call await_() here. Was IO attempted in an unexpected place?' # noqa E501
+        result = await self._session.execute(
+            sa.select(models.Batch)
+            .where(models.Batch.id == id)
+            .options(selectinload(models.Batch.allocations))
+        )
+        return result.scalar_one()
 
     async def list(self) -> list[models.Batch]:
         result = await self._session.execute(

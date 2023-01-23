@@ -54,17 +54,17 @@ async def test_retrieving_batches(session: AsyncSession) -> None:
     # Given
     await session.execute(
         sa.text(
-            "INSERT INTO batch (id, sku, purchased_quantity, eta) VALUES "
+            "INSERT INTO batch (id, sku, qty, eta) VALUES "
             "('fa3310b7-2a44-4f0b-be0e-cf6ba8e201fb', 'RETRO-CLOCK', 100, null),"
             "('db14a922-e95b-481c-ac67-476ca819e96d', 'MINIMALIST-SPOON', 100, '2011-01-02')"
         )
     )
     expected = [
-        models.Batch(UUID("fa3310b7-2a44-4f0b-be0e-cf6ba8e201fb"), "RETRO-CLOCK", 100, eta=None),
+        models.Batch(id=UUID("fa3310b7-2a44-4f0b-be0e-cf6ba8e201fb"), sku="RETRO-CLOCK", qty=100),
         models.Batch(
-            UUID("db14a922-e95b-481c-ac67-476ca819e96d"),
-            "MINIMALIST-SPOON",
-            100,
+            id=UUID("db14a922-e95b-481c-ac67-476ca819e96d"),
+            sku="MINIMALIST-SPOON",
+            qty=100,
             eta=date(2011, 1, 2),
         ),
     ]
@@ -78,14 +78,16 @@ async def test_retrieving_batches(session: AsyncSession) -> None:
 
 async def test_saving_batches(session: AsyncSession) -> None:
     # Given
-    batch = models.Batch(UUID("c7b6f091-bc25-458b-9027-1aa52fc3d9e1"), "RETRO-CLOCK", 100, eta=None)
+    batch = models.Batch(
+        id=UUID("c7b6f091-bc25-458b-9027-1aa52fc3d9e1"), sku="RETRO-CLOCK", qty=100
+    )
 
     # When
     session.add(batch)
     await session.flush()
 
     # Then
-    rows = await session.execute(sa.text("SELECT id, sku, purchased_quantity, eta FROM batch"))
+    rows = await session.execute(sa.text("SELECT id, sku, qty, eta FROM batch"))
     assert rows.fetchall() == [
         (UUID("c7b6f091-bc25-458b-9027-1aa52fc3d9e1"), "RETRO-CLOCK", 100, None)
     ]
@@ -93,14 +95,17 @@ async def test_saving_batches(session: AsyncSession) -> None:
 
 async def test_saving_allocations(session: AsyncSession) -> None:
     # Given
-    batch = models.Batch(UUID("9ef1794c-617b-4634-82e6-dda1f466ea72"), "RETRO-CLOCK", 100, eta=None)
+    batch = models.Batch(
+        id=UUID("9ef1794c-617b-4634-82e6-dda1f466ea72"), sku="RETRO-CLOCK", qty=100
+    )
     line = models.OrderLine(
-        sku="RETRO-CLOCK", qty=10, id=UUID("591bf188-50e8-4279-904a-bcec100d966b")
+        id=UUID("591bf188-50e8-4279-904a-bcec100d966b"), sku="RETRO-CLOCK", qty=10
     )
 
     # When
     batch.allocate(line)
     session.add(batch)
+    # 'add' method doesn't automatically flushed, so manual flush is required to refer batch
     await session.flush()
 
     # Then
@@ -126,7 +131,7 @@ async def test_retrieving_allocations(session: AsyncSession) -> None:
     )
     await session.execute(
         sa.text(
-            "INSERT INTO batch (id, sku, purchased_quantity, eta) VALUES "
+            "INSERT INTO batch (id, sku, qty, eta) VALUES "
             "('9c5d341f-4876-4a54-81f7-720a390884fb',  'RETRO-CLOCK', 100, null)"
         )
     )

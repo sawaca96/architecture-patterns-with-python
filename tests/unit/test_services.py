@@ -1,17 +1,18 @@
-from uuid import UUID
+from typing import Any
+from uuid import UUID, uuid4
 
 import pytest
 
-from app.allocation.adapters.repository import BatchAbstractRepository
+from app.allocation.adapters.repository import AbstractBatchRepository
 from app.allocation.domain import models
-from app.allocation.service_layer import services
+from app.allocation.service_layer import services, unit_of_work
 
 
-class FakeRepository(BatchAbstractRepository):
+class FakeRepository(AbstractBatchRepository):
     def __init__(self, batches: list[models.Batch]) -> None:
         self._batches = set(batches)
 
-    def add(self, batch: models.Batch) -> None:
+    async def add(self, batch: models.Batch) -> None:
         self._batches.add(batch)
 
     async def get(self, id: UUID) -> models.Batch:
@@ -21,25 +22,70 @@ class FakeRepository(BatchAbstractRepository):
         return list(self._batches)
 
 
-async def test_returns_allocation() -> None:
+class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork[AbstractBatchRepository]):
+    def __init__(self) -> None:
+        self.batches = FakeRepository([])
+        self.committed = False
+
+    async def __aexit__(self, *args: Any) -> None:
+        await self.rollback()
+
+    @property
+    def repo(self) -> AbstractBatchRepository:
+        return self.batches
+
+    async def commit(self) -> None:
+        self.committed = True
+
+    async def rollback(self) -> None:
+        pass
+
+
+async def test_add_batch() -> None:
     # Given
-    lint = models.OrderLine(id=UUID("4382a3d5-e3eb-44cd-972b-3a90e793060b"), sku="SKU", qty=10)
-    batch = models.Batch(UUID("f0e9d78e-ccc7-4f9b-a0e9-4b286b6d8ca5"), "SKU", 100, eta=None)
-    repo = FakeRepository([batch])
+    uow = FakeUnitOfWork()
 
     # When
-    result = await services.allocate(lint, repo)
+    await services.add_batch(
+        UUID("3a80e50e-22f4-4907-afb3-8aa37e0c27b8"), "CRUNCHY-ARMCHAIR", 100, None, uow
+    )
+
+    # Then
+    assert await uow.batches.get(UUID("3a80e50e-22f4-4907-afb3-8aa37e0c27b8")) is not None
+    assert uow.committed
+
+
+async def test_allocate_returns_allocation() -> None:
+    # Given
+    uow = FakeUnitOfWork()
+    await services.add_batch(
+        UUID("f0e9d78e-ccc7-4f9b-a0e9-4b286b6d8ca5"), "OMINOUS-MIRROR", 100, None, uow
+    )
+
+    # When
+    result = await services.allocate(uuid4(), "OMINOUS-MIRROR", 10, uow)
 
     # Then
     assert result == UUID("f0e9d78e-ccc7-4f9b-a0e9-4b286b6d8ca5")
 
 
-async def test_error_for_invalid_sku() -> None:
+async def test_allocate_error_for_invalid_sku() -> None:
     # Given
-    lint = models.OrderLine(id=UUID("7970dba1-6d92-47e8-9664-f512493febfc"), sku="UNKNOWN", qty=10)
-    batch = models.Batch(UUID("1cb92bac-98aa-421c-afe6-7cbba08b050c"), "SKU", 100, eta=None)
-    repo = FakeRepository([batch])
+    uow = FakeUnitOfWork()
+    await services.add_batch(uuid4(), "SKU", 100, None, uow)
 
     # When & Then
     with pytest.raises(services.InvalidSku, match="Invalid sku UNKNOWN"):
-        await services.allocate(lint, repo)
+        await services.allocate(uuid4(), "UNKNOWN", 10, uow)
+
+
+async def test_allocate_commits() -> None:
+    # Given
+    uow = FakeUnitOfWork()
+    await services.add_batch(uuid4(), "OMINOUS-MIRROR", 100, None, uow)
+
+    # When
+    await services.allocate(uuid4(), "OMINOUS-MIRROR", 10, uow)
+
+    # Then
+    assert uow.committed

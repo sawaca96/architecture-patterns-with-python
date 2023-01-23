@@ -20,7 +20,7 @@ batch_table = sa.Table(
     metadata,
     sa.Column("id", UUID(as_uuid=True), primary_key=True),
     sa.Column("sku", sa.String),
-    sa.Column("purchased_quantity", sa.Integer),
+    sa.Column("qty", sa.Integer),
     sa.Column("eta", sa.Date, nullable=True),
 )
 

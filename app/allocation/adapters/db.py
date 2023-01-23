@@ -12,7 +12,6 @@ class DB:
         self._session_factory = async_scoped_session(
             sessionmaker(
                 autocommit=False,
-                autoflush=False,
                 class_=AsyncSession,
                 bind=self._engine,
             ),
