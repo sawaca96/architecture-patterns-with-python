@@ -9,15 +9,6 @@ class OutOfStock(Exception):
     pass
 
 
-def allocate(line: OrderLine, batches: list[Batch]) -> UUID:
-    try:
-        batch = next(b for b in sorted(batches) if b.can_allocate(line))
-        batch.allocate(line)
-        return batch.id
-    except StopIteration:
-        raise OutOfStock(f"Out of stock for sku {line.sku}")
-
-
 @dataclass(unsafe_hash=True, kw_only=True)
 class OrderLine:
     id: UUID = field(default_factory=uuid4)
@@ -73,3 +64,22 @@ class Batch:
             and self.available_quantity >= line.qty
             and line not in self.allocations
         )
+
+
+@dataclass(kw_only=True)
+class Product:
+    sku: str
+    batches: list[Batch]
+    version_number: int = 0
+
+    def allocate(self, line: OrderLine) -> UUID:
+        try:
+            batch = next(b for b in sorted(self.batches) if b.can_allocate(line))
+            batch.allocate(line)
+            self.version_number += 1
+            return batch.id
+        except StopIteration:
+            raise OutOfStock(f"Out of stock for sku {line.sku}")
+
+    def __hash__(self) -> int:
+        return hash(self.sku)

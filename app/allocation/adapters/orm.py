@@ -19,7 +19,7 @@ batch_table = sa.Table(
     "batch",
     metadata,
     sa.Column("id", UUID(as_uuid=True), primary_key=True),
-    sa.Column("sku", sa.String),
+    sa.Column("sku", sa.ForeignKey("products.sku")),
     sa.Column("qty", sa.Integer),
     sa.Column("eta", sa.Date, nullable=True),
 )
@@ -32,10 +32,17 @@ allocation_table = sa.Table(
     sa.Column("batch_id", sa.ForeignKey("batch.id")),
 )
 
+products = sa.Table(
+    "products",
+    metadata,
+    sa.Column("sku", sa.String, primary_key=True),
+    sa.Column("version_number", sa.Integer, nullable=False, server_default="0"),
+)
+
 
 def start_mappers() -> None:
     line_mapper = mapper_registry.map_imperatively(models.OrderLine, order_line_table)
-    mapper_registry.map_imperatively(
+    batches_mapper = mapper_registry.map_imperatively(
         models.Batch,
         batch_table,
         properties={
@@ -43,4 +50,7 @@ def start_mappers() -> None:
                 line_mapper, secondary=allocation_table, collection_class=set
             )
         },
+    )
+    mapper_registry.map_imperatively(
+        models.Product, products, properties={"batches": relationship(batches_mapper)}
     )
