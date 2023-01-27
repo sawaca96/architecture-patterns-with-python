@@ -33,8 +33,14 @@ async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
         await session.execute(table.delete())
 
 
-async def test_add_batch_returns_201(client: TestClient) -> None:
+async def test_add_batch_returns_201(client: TestClient, session: AsyncSession) -> None:
     # Given
+    await session.execute(
+        sa.text("INSERT INTO products (sku, version_number) VALUES " "('SKU', 1)")
+    )
+    await session.commit()
+
+    # When
     res = client.post("/batches", json={"batch_id": str(uuid4()), "sku": "SKU", "quantity": 3})
 
     # Then
@@ -46,6 +52,13 @@ async def test_allocate_api_returns_201_and_allocated_batch(
     session: AsyncSession, client: TestClient
 ) -> None:
     # Given: create 3 batches with different eta. 2 batches have same sku
+    await session.execute(
+        sa.text("INSERT INTO products (sku, version_number) VALUES " "('SKU', 1)")
+    )
+    await session.execute(
+        sa.text("INSERT INTO products (sku, version_number) VALUES " "('OTHER-SKU', 1)")
+    )
+    await session.commit()
     batches = [
         (UUID("d236f2aa-8f61-4aeb-9cbd-eade21736457"), "SKU", 100, date(2011, 1, 2)),
         (UUID("f6e16413-441e-40c0-b2eb-e826b080b448"), "SKU", 100, date(2011, 1, 1)),
@@ -55,10 +68,6 @@ async def test_allocate_api_returns_201_and_allocated_batch(
         await session.execute(
             sa.text("INSERT INTO batch (id, sku, qty, eta) " "VALUES (:id, :sku, :qty, :eta)"),
             dict(id=id, sku=sku, qty=qty, eta=eta),
-        )
-        await session.execute(
-            sa.text("SELECT id FROM batch WHERE id=:id AND sku=:sku"),
-            dict(id=id, sku=sku),
         )
         await session.commit()
 

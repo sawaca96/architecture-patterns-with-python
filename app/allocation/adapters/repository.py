@@ -1,47 +1,39 @@
 import abc
-from uuid import UUID
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload, subqueryload
+from sqlalchemy.orm import selectinload
 
 from app.allocation.domain import models
 
 
-class AbstractBatchRepository(abc.ABC):
+class AbstractProductRepository(abc.ABC):
     @abc.abstractmethod
-    async def add(self, batch: models.Batch) -> None:
+    async def add(self, product: models.Product) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def get(self, id: UUID) -> models.Batch:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    async def list(self) -> list[models.Batch]:
+    async def get(self, sku: str) -> models.Product:
         raise NotImplementedError
 
 
-class PGBatchRepository(AbstractBatchRepository):
+class PGProductRepository(AbstractProductRepository):
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def add(self, batch: models.Batch) -> None:
-        self._session.add(batch)
+    async def add(self, product: models.Product) -> None:
+        self._session.add(product)
         await self._session.flush()
 
-    async def get(self, id: UUID) -> models.Batch:
+    async def get(self, sku: str) -> models.Product:
         # async sqlalchemy doesn't support relationship
         # It raise 'greenlet_spawn has not been called; can't call await_() here. Was IO attempted in an unexpected place?' # noqa E501
         result = await self._session.execute(
-            sa.select(models.Batch)
-            .where(models.Batch.id == id)
-            .options(selectinload(models.Batch.allocations))
+            sa.select(models.Product)
+            .where(models.Product.sku == sku)
+            .options(
+                selectinload(models.Product.batches).options(selectinload(models.Batch.allocations))
+            )
         )
-        return result.scalar_one()
-
-    async def list(self) -> list[models.Batch]:
-        result = await self._session.execute(
-            sa.select(models.Batch).options(subqueryload(models.Batch.allocations))
-        )
-        return [r[0] for r in result.fetchall()]
+        # TODO: joinedload?
+        return result.scalar_one_or_none()

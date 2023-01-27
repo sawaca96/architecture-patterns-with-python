@@ -3,36 +3,33 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from app.allocation.adapters.repository import AbstractBatchRepository
+from app.allocation.adapters.repository import AbstractProductRepository
 from app.allocation.domain import models
 from app.allocation.service_layer import services, unit_of_work
 
 
-class FakeRepository(AbstractBatchRepository):
-    def __init__(self, batches: list[models.Batch]) -> None:
-        self._batches = set(batches)
+class FakeRepository(AbstractProductRepository):
+    def __init__(self, products: list[models.Product]) -> None:
+        self._products = set(products)
 
-    async def add(self, batch: models.Batch) -> None:
-        self._batches.add(batch)
+    async def add(self, product: models.Product) -> None:
+        self._products.add(product)
 
-    async def get(self, id: UUID) -> models.Batch:
-        return next(b for b in self._batches if b.id == id)
-
-    async def list(self) -> list[models.Batch]:
-        return list(self._batches)
+    async def get(self, sku: str) -> models.Product:
+        return next((p for p in self._products if p.sku == sku), None)
 
 
-class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork[AbstractBatchRepository]):
+class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork[AbstractProductRepository]):
     def __init__(self) -> None:
-        self.batches = FakeRepository([])
+        self._repo = FakeRepository([])
         self.committed = False
 
     async def __aexit__(self, *args: Any) -> None:
         await self.rollback()
 
     @property
-    def repo(self) -> AbstractBatchRepository:
-        return self.batches
+    def repo(self) -> AbstractProductRepository:
+        return self._repo
 
     async def commit(self) -> None:
         self.committed = True
@@ -46,16 +43,32 @@ async def test_add_batch() -> None:
     uow = FakeUnitOfWork()
 
     # When
-    await services.add_batch(
-        UUID("3a80e50e-22f4-4907-afb3-8aa37e0c27b8"), "CRUNCHY-ARMCHAIR", 100, None, uow
-    )
+    await services.add_batch(uuid4(), "CRUNCHY-ARMCHAIR", 100, None, uow)
 
     # Then
-    assert await uow.batches.get(UUID("3a80e50e-22f4-4907-afb3-8aa37e0c27b8")) is not None
+    assert await uow.repo.get("CRUNCHY-ARMCHAIR") is not None
     assert uow.committed
 
 
-async def test_allocate_returns_allocation() -> None:
+async def test_add_batch_for_existing_product() -> None:
+    # Given
+    uow = FakeUnitOfWork()
+
+    # When
+    await services.add_batch(
+        UUID("766f526a-b73f-45ed-b6b9-00fd964b02e5"), "CRUNCHY-ARMCHAIR", 100, None, uow
+    )
+    await services.add_batch(
+        UUID("46faff56-8729-4f0d-8a8f-75a1dfb3741c"), "CRUNCHY-ARMCHAIR", 99, None, uow
+    )
+
+    # Then
+    batches = (await uow.repo.get("CRUNCHY-ARMCHAIR")).batches
+    assert UUID("766f526a-b73f-45ed-b6b9-00fd964b02e5") in [b.id for b in batches]
+    assert UUID("46faff56-8729-4f0d-8a8f-75a1dfb3741c") in [b.id for b in batches]
+
+
+async def test_allocate_returns_allocated_batch_id() -> None:
     # Given
     uow = FakeUnitOfWork()
     await services.add_batch(
@@ -79,7 +92,7 @@ async def test_allocate_error_for_invalid_sku() -> None:
         await services.allocate(uuid4(), "UNKNOWN", 10, uow)
 
 
-async def test_allocate_commits() -> None:
+async def test_allocate_excute_commits() -> None:
     # Given
     uow = FakeUnitOfWork()
     await services.add_batch(uuid4(), "OMINOUS-MIRROR", 100, None, uow)

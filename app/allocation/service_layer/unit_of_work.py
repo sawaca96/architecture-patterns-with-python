@@ -7,7 +7,7 @@ from typing import Any, Generic, TypeVar
 from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.allocation.adapters.repository import AbstractBatchRepository, PGBatchRepository
+from app.allocation.adapters.repository import AbstractProductRepository, PGProductRepository
 from app.config import get_config
 
 config = get_config()
@@ -35,26 +35,30 @@ class AbstractUnitOfWork(abc.ABC, Generic[Repo]):
         raise NotImplementedError
 
 
-class BatchUnitOfWork(AbstractUnitOfWork[AbstractBatchRepository]):
+class ProductUnitOfWork(AbstractUnitOfWork[AbstractProductRepository]):
     def __init__(self) -> None:
-        self._engine = create_async_engine(config.PG_DSN, echo=False)
+        engine = create_async_engine(
+            config.PG_DSN,
+            echo=False,
+            isolation_level="SERIALIZABLE",
+        )
         self._session_factory = async_scoped_session(
             sessionmaker(
                 autocommit=False,
-                autoflush=False,
+                expire_on_commit=False,
                 class_=AsyncSession,
-                bind=self._engine,
+                bind=engine,
             ),
             scopefunc=current_task,
         )
 
     @property
-    def repo(self) -> AbstractBatchRepository:
-        return self._batches
+    def repo(self) -> AbstractProductRepository:
+        return self._repo
 
-    async def __aenter__(self) -> AbstractUnitOfWork[AbstractBatchRepository]:
+    async def __aenter__(self) -> AbstractUnitOfWork[AbstractProductRepository]:
         self._session: AsyncSession = self._session_factory()
-        self._batches = PGBatchRepository(self._session)
+        self._repo = PGProductRepository(self._session)
         return await super().__aenter__()
 
     async def __aexit__(self, *args: Any) -> None:

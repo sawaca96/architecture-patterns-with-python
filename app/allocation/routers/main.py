@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, HTTPException
 
-from app.allocation.adapters.repository import AbstractBatchRepository
+from app.allocation.adapters.repository import AbstractProductRepository
 from app.allocation.domain import models
 from app.allocation.routers.dependencies import batch_uow
 from app.allocation.service_layer import services
@@ -24,7 +24,7 @@ async def add_batch(
     sku: str = Body(),
     quantity: int = Body(),
     eta: date = Body(default=None),
-    uow: AbstractUnitOfWork[AbstractBatchRepository] = Depends(batch_uow),
+    uow: AbstractUnitOfWork[AbstractProductRepository] = Depends(batch_uow),
 ) -> dict[str, str]:
     await services.add_batch(batch_id, sku, quantity, eta, uow)
     return {"message": "success"}
@@ -35,7 +35,7 @@ async def allocate(
     line_id: UUID = Body(),
     sku: str = Body(),
     quantity: int = Body(),
-    uow: AbstractUnitOfWork[AbstractBatchRepository] = Depends(batch_uow),
+    uow: AbstractUnitOfWork[AbstractProductRepository] = Depends(batch_uow),
 ) -> dict[str, str]:
     try:
         batch_id = await services.allocate(line_id, sku, quantity, uow)
