@@ -1,11 +1,11 @@
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from datetime import date
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
 import sqlalchemy as sa
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
@@ -13,10 +13,14 @@ from app.allocation.adapters.orm import metadata
 from app.allocation.routers.main import app
 
 
-@pytest.fixture(scope="session")
-def client() -> Generator[TestClient, Any, Any]:
-    with TestClient(app) as c:
-        yield c
+@pytest.fixture
+async def client() -> AsyncGenerator[AsyncClient, Any]:
+    async with AsyncClient(
+        app=app,
+        base_url="http://testserver",
+        headers={"Content-Type": "application/json"},
+    ) as client:
+        yield client
 
 
 @pytest.fixture
@@ -33,7 +37,7 @@ async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
         await session.execute(table.delete())
 
 
-async def test_add_batch_returns_201(client: TestClient, session: AsyncSession) -> None:
+async def test_add_batch_returns_201(client: AsyncClient, session: AsyncSession) -> None:
     # Given
     await session.execute(
         sa.text("INSERT INTO products (sku, version_number) VALUES " "('SKU', 1)")
@@ -41,7 +45,9 @@ async def test_add_batch_returns_201(client: TestClient, session: AsyncSession) 
     await session.commit()
 
     # When
-    res = client.post("/batches", json={"batch_id": str(uuid4()), "sku": "SKU", "quantity": 3})
+    res = await client.post(
+        "/batches", json={"batch_id": str(uuid4()), "sku": "SKU", "quantity": 3}
+    )
 
     # Then
     assert res.status_code == 201
@@ -49,7 +55,7 @@ async def test_add_batch_returns_201(client: TestClient, session: AsyncSession) 
 
 
 async def test_allocate_api_returns_201_and_allocated_batch(
-    session: AsyncSession, client: TestClient
+    session: AsyncSession, client: AsyncClient
 ) -> None:
     # Given: create 3 batches with different eta. 2 batches have same sku
     await session.execute(
@@ -72,7 +78,9 @@ async def test_allocate_api_returns_201_and_allocated_batch(
         await session.commit()
 
     # When
-    res = client.post("/allocate", json={"line_id": str(uuid4()), "sku": "SKU", "quantity": 3})
+    res = await client.post(
+        "/allocate", json={"line_id": str(uuid4()), "sku": "SKU", "quantity": 3}
+    )
 
     # Then: order line is allocated to the batch with earliest eta, and status code 201
     assert res.status_code == 201
@@ -80,10 +88,10 @@ async def test_allocate_api_returns_201_and_allocated_batch(
 
 
 async def test_allocate_api_returns_400_and_error_message_if_invalid_sku(
-    client: TestClient,
+    client: AsyncClient,
 ) -> None:
     # When: request with invalid sku
-    res = client.post(
+    res = await client.post(
         "/allocate", json={"line_id": str(uuid4()), "sku": "NOT-EXIST-SKU", "quantity": 3}
     )
 

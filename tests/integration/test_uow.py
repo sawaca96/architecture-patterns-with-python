@@ -130,13 +130,17 @@ async def test_concurrent_updates_to_version_are_not_allowed(session: AsyncSessi
             async with ProductUnitOfWork() as uow:
                 product = await uow.repo.get("RETRO-CLOCK")
                 product.allocate(order)
+                await asyncio.sleep(0.1)
                 await uow.commit()
         except Exception as e:
             exceptions.append(e)
 
     await asyncio.gather(*[allocate(order1), allocate(order2)])
     [exception] = exceptions
-    assert "could not serialize access due to concurrent update" in str(exception)
+    assert (
+        "UPDATE statement on table 'products' expected to update 1 row(s); 0 were matched."
+        in str(exception)
+    )
 
     [[version]] = await session.execute(
         sa.text("SELECT version_number FROM products WHERE sku=:sku"),

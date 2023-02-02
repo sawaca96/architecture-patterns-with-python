@@ -5,6 +5,15 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.config import get_config
+
+config = get_config()
+
+ENGINE = create_async_engine(config.PG_DSN, echo=False)
+SESSION_FACTORY = async_scoped_session(
+    sessionmaker(autocommit=False, class_=AsyncSession, bind=ENGINE), scopefunc=current_task
+)
+
 
 class DB:
     def __init__(self, url: str) -> None:
@@ -28,4 +37,4 @@ class DB:
             await session.rollback()
             raise
         finally:
-            await session.close()
+            await self._session_factory.remove()
