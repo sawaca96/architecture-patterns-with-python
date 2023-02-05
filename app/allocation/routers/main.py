@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import Body, Depends, FastAPI, HTTPException
 
 from app.allocation.adapters.repository import AbstractProductRepository
-from app.allocation.domain import models
 from app.allocation.routers.dependencies import batch_uow
 from app.allocation.service_layer import services
 from app.allocation.service_layer.unit_of_work import AbstractUnitOfWork
@@ -39,6 +38,6 @@ async def allocate(
 ) -> dict[str, str]:
     try:
         batch_id = await services.allocate(line_id, sku, quantity, uow)
-    except (models.OutOfStock, services.InvalidSku) as e:
+    except services.InvalidSku as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"batch_id": str(batch_id)}

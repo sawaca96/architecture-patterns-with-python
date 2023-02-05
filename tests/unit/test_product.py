@@ -1,8 +1,7 @@
 from datetime import date, timedelta
 
-import pytest
-
-from app.allocation.domain.models import Batch, OrderLine, OutOfStock, Product
+from app.allocation.domain.events import OutOfStock
+from app.allocation.domain.models import Batch, OrderLine, Product
 
 
 def test_perfers_none_eta_batches_to_allocate() -> None:
@@ -58,8 +57,9 @@ def test_raises_out_of_stock_exception_if_cannot_allocate() -> None:
     product.allocate(OrderLine(sku="SMALL-FORK", qty=10))
 
     # When & Then
-    with pytest.raises(OutOfStock, match="SMALL-FORK"):
-        product.allocate(OrderLine(sku="SMALL-FORK", qty=1))
+    allocation = product.allocate(OrderLine(sku="SMALL-FORK", qty=1))
+    assert product.events[-1] == OutOfStock(sku="SMALL-FORK")
+    assert allocation is None
 
 
 def test_increment_version_number() -> None:

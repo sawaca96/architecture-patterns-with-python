@@ -2,6 +2,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from pytest_mock import MockerFixture
 
 from app.allocation.adapters.repository import AbstractProductRepository
 from app.allocation.domain import models
@@ -10,12 +11,13 @@ from app.allocation.service_layer import services, unit_of_work
 
 class FakeRepository(AbstractProductRepository):
     def __init__(self, products: list[models.Product]) -> None:
+        self._seen: set[models.Product] = set()
         self._products = set(products)
 
-    async def add(self, product: models.Product) -> None:
+    async def _add(self, product: models.Product) -> None:
         self._products.add(product)
 
-    async def get(self, sku: str) -> models.Product:
+    async def _get(self, sku: str) -> models.Product:
         return next((p for p in self._products if p.sku == sku), None)
 
 
@@ -31,7 +33,7 @@ class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork[AbstractProductRepository])
     def repo(self) -> AbstractProductRepository:
         return self._repo
 
-    async def commit(self) -> None:
+    async def _commit(self) -> None:
         self.committed = True
 
     async def rollback(self) -> None:
@@ -102,3 +104,15 @@ async def test_allocate_excute_commits() -> None:
 
     # Then
     assert uow.committed
+
+
+async def test_sends_email_on_out_of_stock_error(mocker: MockerFixture) -> None:
+    uow = FakeUnitOfWork()
+    await services.add_batch(uuid4(), "OMINOUS-MIRROR", 1, None, uow)
+
+    mock_send_mail = mocker.patch("app.allocation.adapters.email.send_mail")
+    await services.allocate(uuid4(), "OMINOUS-MIRROR", 10, uow)
+    assert mock_send_mail.call_args == mocker.call(
+        "stock@made.com",
+        "Out of stock for OMINOUS-MIRROR",
+    )
