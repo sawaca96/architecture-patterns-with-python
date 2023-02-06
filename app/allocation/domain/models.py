@@ -4,9 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID, uuid4
 
-
-class OutOfStock(Exception):
-    pass
+from app.allocation.domain import events
 
 
 @dataclass(unsafe_hash=True, kw_only=True)
@@ -71,6 +69,7 @@ class Product:
     sku: str
     batches: list[Batch]
     version_number: int = 0
+    events: list[events.Event] = field(default_factory=lambda: [])
 
     def allocate(self, line: OrderLine) -> UUID:
         try:
@@ -79,7 +78,8 @@ class Product:
             self.version_number += 1
             return batch.id
         except StopIteration:
-            raise OutOfStock(f"Out of stock for sku {line.sku}")
+            self.events.append(events.OutOfStock(sku=line.sku))
+            return None
 
     def __hash__(self) -> int:
         return hash(self.sku)

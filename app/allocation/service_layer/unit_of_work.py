@@ -4,12 +4,16 @@ import abc
 from typing import Any, Generic, TypeVar
 
 from app.allocation.adapters.db import SESSION_FACTORY
-from app.allocation.adapters.repository import AbstractProductRepository, PGProductRepository
+from app.allocation.adapters.repository import (
+    AbstractProductRepository,
+    PGProductRepository,
+)
+from app.allocation.service_layer import messagebus
 from app.config import get_config
 
 config = get_config()
 
-Repo = TypeVar("Repo")
+Repo = TypeVar("Repo", bound=AbstractProductRepository)
 
 
 class AbstractUnitOfWork(abc.ABC, Generic[Repo]):
@@ -23,8 +27,18 @@ class AbstractUnitOfWork(abc.ABC, Generic[Repo]):
     def repo(self) -> Repo:
         raise NotImplementedError
 
-    @abc.abstractmethod
     async def commit(self) -> None:
+        await self._commit()
+        await self._publish_events()
+
+    async def _publish_events(self) -> None:
+        for product in self.repo._seen:
+            while product.events:
+                event = product.events.pop(0)
+                await messagebus.handle(event)
+
+    @abc.abstractmethod
+    async def _commit(self) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -46,7 +60,7 @@ class ProductUnitOfWork(AbstractUnitOfWork[AbstractProductRepository]):
         await super().__aexit__(*args)
         await SESSION_FACTORY.remove()
 
-    async def commit(self) -> None:
+    async def _commit(self) -> None:
         await self._session.commit()
 
     async def rollback(self) -> None:
