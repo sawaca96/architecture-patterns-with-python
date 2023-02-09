@@ -5,7 +5,7 @@ from app.allocation.service_layer import handlers, unit_of_work
 
 Message = commands.Command | events.Event
 
-# TODO: 이렇게 하는거 맞나?
+
 async def handle(
     message: Message,
     uow: unit_of_work.AbstractUnitOfWork[unit_of_work.AbstractProductRepository],
