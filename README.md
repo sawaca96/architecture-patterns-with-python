@@ -19,3 +19,4 @@ Reference https://github.com/cosmicpython/code
 - [4️⃣ CHAPTER_04 usecase](https://github.com/sawaca96/architecture-patterns-with-python/pull/1)
 - [6️⃣ CHAPTER_06 unit of work](https://github.com/sawaca96/architecture-patterns-with-python/pull/2#pullrequestreview-1265028411)
 - [7️⃣ CHAPTER_07 aggregate](https://github.com/sawaca96/architecture-patterns-with-python/pull/3)
+- [8️⃣ CHAPTER_08 event and messagebug](https://github.com/sawaca96/architecture-patterns-with-python/pull/4)

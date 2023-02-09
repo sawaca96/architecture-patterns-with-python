@@ -158,3 +158,29 @@ async def test_concurrent_updates_to_version_are_not_allowed(session: AsyncSessi
         dict(sku="RETRO-CLOCK"),
     )
     assert len(orders.all()) == 1
+
+
+async def test_get_by_batch_id(session: AsyncSession) -> None:
+    b1 = models.Batch(
+        id=UUID("c1dac0a1-b8e8-4052-a7e4-67061204d4d9"), sku="sku1", qty=100, eta=None
+    )
+    b2 = models.Batch(
+        id=UUID("c3f04384-8fdf-4d89-8616-9efec913092f"), sku="sku1", qty=100, eta=None
+    )
+    b3 = models.Batch(
+        id=UUID("cf15ab56-082a-4495-8422-b42cbb5ac1e5"), sku="sku2", qty=100, eta=None
+    )
+    p1 = models.Product(sku="sku1", batches=[b1, b2])
+    p2 = models.Product(sku="sku2", batches=[b3])
+    session.add(p1)
+    session.add(p2)
+    await session.commit()
+
+    async with ProductUnitOfWork() as uow:
+        actual1 = await uow.repo.get_by_batch_id(UUID("c1dac0a1-b8e8-4052-a7e4-67061204d4d9"))
+        actual2 = await uow.repo.get_by_batch_id(UUID("c3f04384-8fdf-4d89-8616-9efec913092f"))
+        actual3 = await uow.repo.get_by_batch_id(UUID("cf15ab56-082a-4495-8422-b42cbb5ac1e5"))
+        assert actual1.sku == "sku1"
+        assert actual2.sku == "sku1"
+        assert actual3.sku == "sku2"
+        await uow.commit()

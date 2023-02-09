@@ -1,18 +1,30 @@
-from app.allocation.adapters import email
+from typing import Any
+
 from app.allocation.domain import events
+from app.allocation.service_layer import handlers, unit_of_work
 
 
-async def handle(event: events.Event) -> None:
-    if isinstance(event, events.OutOfStock):
-        await send_out_of_stock_notification(event)
-    else:
-        raise Exception(f"Unknown event {event}")
-
-
-async def send_out_of_stock_notification(event: events.OutOfStock) -> None:
-    email.send_mail("stock@made.com", f"Out of stock for {event.sku}")
-
-
-HANDLERS = {
-    events.OutOfStock: [send_out_of_stock_notification],
-}
+# TODO: 이렇게 하는거 맞나?
+async def handle(
+    event: events.Event,
+    uow: unit_of_work.AbstractUnitOfWork[unit_of_work.AbstractProductRepository],
+) -> list[Any]:
+    results = []
+    queue = [event]
+    while queue:
+        event = queue.pop(0)
+        result = None
+        if isinstance(event, events.OutOfStock):
+            handlers.send_out_of_stock_notification(event, uow)
+        elif isinstance(event, events.BatchQuantityChanged):
+            await handlers.change_batch_quantity(event, uow)
+        elif isinstance(event, events.AllocationRequired):
+            result = await handlers.allocate(event, uow)
+        elif isinstance(event, events.BatchCreated):
+            await handlers.add_batch(event, uow)
+        else:
+            raise Exception(f"Unknown event {event}")
+        if result:
+            results.append(result)
+        queue.extend(uow.collect_new_events())
+    return results

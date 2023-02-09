@@ -1,8 +1,9 @@
 import abc
+from uuid import UUID
 
 import sqlalchemy as sa
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, subqueryload
 
 from app.allocation.domain import models
 
@@ -25,12 +26,22 @@ class AbstractProductRepository(abc.ABC):
             self._seen.add(product)
         return product
 
+    async def get_by_batch_id(self, batch_id: UUID) -> models.Product:
+        product = await self._get_by_batch_id(batch_id)
+        if product:
+            self._seen.add(product)
+        return product
+
     @abc.abstractmethod
     async def _add(self, product: models.Product) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
     async def _get(self, sku: str) -> models.Product:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def _get_by_batch_id(self, batch_id: UUID) -> models.Product:
         raise NotImplementedError
 
 
@@ -54,4 +65,14 @@ class PGProductRepository(AbstractProductRepository):
             )
         )
         # TODO: joinedload?
+        return result.scalar_one_or_none()
+
+    async def _get_by_batch_id(self, batch_id: UUID) -> models.Product:
+        result = await self._session.execute(
+            sa.select(models.Product)
+            .where(models.Product.batches.any(models.Batch.id == batch_id))  # type: ignore
+            .options(
+                subqueryload(models.Product.batches).options(subqueryload(models.Batch.allocations))
+            )
+        )
         return result.scalar_one_or_none()

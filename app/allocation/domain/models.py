@@ -44,9 +44,8 @@ class Batch:
         if self.can_allocate(line):
             self.allocations.add(line)
 
-    def deallocate(self, line: OrderLine) -> None:
-        if line in self.allocations:
-            self.allocations.remove(line)
+    def deallocate_one(self) -> OrderLine:
+        return self.allocations.pop()
 
     @property
     def allocated_quantity(self) -> int:
@@ -80,6 +79,13 @@ class Product:
         except StopIteration:
             self.events.append(events.OutOfStock(sku=line.sku))
             return None
+
+    def change_batch_quantity(self, id: UUID, qty: int) -> None:
+        batch = next(b for b in self.batches if b.id == id)
+        batch.qty = qty
+        while batch.available_quantity < 0:
+            line = batch.deallocate_one()
+            self.events.append(events.AllocationRequired(line.id, line.sku, line.qty))
 
     def __hash__(self) -> int:
         return hash(self.sku)
