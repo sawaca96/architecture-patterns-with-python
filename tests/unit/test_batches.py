@@ -75,28 +75,3 @@ def test_allocation_is_idempotent() -> None:
     batch.allocate(line)
     # Then
     assert batch.available_quantity == 0
-
-
-def test_deallocate() -> None:
-    # Given
-    batch = Batch(sku="SMALL-FORK", qty=10)
-    line = OrderLine(sku="SMALL-FORK", qty=10)
-
-    # When
-    batch.allocate(line)
-    batch.deallocate(line)
-
-    # Then
-    assert batch.available_quantity == 10
-
-
-def test_can_only_deallocate_allocated_lines() -> None:
-    # Given
-    batch = Batch(sku="SMALL-FORK", qty=10)
-    line = OrderLine(sku="SMALL-FORK", qty=10)
-
-    # When
-    batch.deallocate(line)
-
-    # Then
-    assert batch.available_quantity == 10

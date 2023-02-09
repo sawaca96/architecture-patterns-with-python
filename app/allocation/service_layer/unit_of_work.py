@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import abc
 from typing import Any, Generic, TypeVar
+from collections.abc import Generator
 
 from app.allocation.adapters.db import SESSION_FACTORY
 from app.allocation.adapters.repository import (
     AbstractProductRepository,
     PGProductRepository,
 )
-from app.allocation.service_layer import messagebus
+from app.allocation.domain.events import Event
 from app.config import get_config
 
 config = get_config()
@@ -29,13 +30,11 @@ class AbstractUnitOfWork(abc.ABC, Generic[Repo]):
 
     async def commit(self) -> None:
         await self._commit()
-        await self._publish_events()
 
-    async def _publish_events(self) -> None:
+    def collect_new_events(self) -> Generator[Event, None, None]:
         for product in self.repo._seen:
             while product.events:
-                event = product.events.pop(0)
-                await messagebus.handle(event)
+                yield product.events.pop(0)
 
     @abc.abstractmethod
     async def _commit(self) -> None:
