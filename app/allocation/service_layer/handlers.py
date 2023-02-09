@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.allocation.adapters import email
 from app.allocation.adapters.repository import AbstractProductRepository
-from app.allocation.domain import events, models
+from app.allocation.domain import commands, events, models
 from app.allocation.service_layer import unit_of_work
 
 
@@ -11,25 +11,23 @@ class InvalidSku(Exception):
 
 
 async def add_batch(
-    event: events.BatchCreated,
+    cmd: commands.CreateBatch,
     uow: unit_of_work.AbstractUnitOfWork[AbstractProductRepository],
 ) -> None:
     async with uow:
-        product = await uow.repo.get(event.sku)
+        product = await uow.repo.get(cmd.sku)
         if product is None:
-            product = models.Product(sku=event.sku, batches=[])
+            product = models.Product(sku=cmd.sku, batches=[])
             await uow.repo.add(product)
-        product.batches.append(
-            models.Batch(id=event.id, sku=event.sku, qty=event.qty, eta=event.eta)
-        )
+        product.batches.append(models.Batch(id=cmd.id, sku=cmd.sku, qty=cmd.qty, eta=cmd.eta))
         await uow.commit()
 
 
 async def allocate(
-    event: events.AllocationRequired,
+    cmd: commands.Allocate,
     uow: unit_of_work.AbstractUnitOfWork[AbstractProductRepository],
 ) -> UUID:
-    line = models.OrderLine(id=event.order_id, sku=event.sku, qty=event.qty)
+    line = models.OrderLine(id=cmd.order_id, sku=cmd.sku, qty=cmd.qty)
     async with uow:
         product = await uow.repo.get(line.sku)
         if product is None:
@@ -40,12 +38,12 @@ async def allocate(
 
 
 async def change_batch_quantity(
-    event: events.BatchQuantityChanged,
+    cmd: commands.ChangeBatchQuantity,
     uow: unit_of_work.AbstractUnitOfWork[AbstractProductRepository],
 ) -> None:
     async with uow:
-        product = await uow.repo.get_by_batch_id(event.id)
-        product.change_batch_quantity(event.id, event.qty)
+        product = await uow.repo.get_by_batch_id(cmd.id)
+        product.change_batch_quantity(cmd.id, cmd.qty)
         await uow.commit()
 
 

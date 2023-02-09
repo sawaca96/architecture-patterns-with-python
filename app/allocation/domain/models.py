@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from uuid import UUID, uuid4
 
-from app.allocation.domain import events
+from app.allocation.domain import commands, events
 
 
 @dataclass(unsafe_hash=True, kw_only=True)
@@ -68,7 +68,7 @@ class Product:
     sku: str
     batches: list[Batch]
     version_number: int = 0
-    events: list[events.Event] = field(default_factory=lambda: [])
+    events: list[events.Event | commands.Command] = field(default_factory=lambda: [])
 
     def allocate(self, line: OrderLine) -> UUID:
         try:
@@ -85,7 +85,7 @@ class Product:
         batch.qty = qty
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
-            self.events.append(events.AllocationRequired(line.id, line.sku, line.qty))
+            self.events.append(commands.Allocate(line.id, line.sku, line.qty))
 
     def __hash__(self) -> int:
         return hash(self.sku)

@@ -1,30 +1,57 @@
 from typing import Any
 
-from app.allocation.domain import events
+from app.allocation.domain import commands, events
 from app.allocation.service_layer import handlers, unit_of_work
 
+Message = commands.Command | events.Event
 
 # TODO: 이렇게 하는거 맞나?
 async def handle(
-    event: events.Event,
+    message: Message,
     uow: unit_of_work.AbstractUnitOfWork[unit_of_work.AbstractProductRepository],
 ) -> list[Any]:
     results = []
-    queue = [event]
+    queue = [message]
     while queue:
-        event = queue.pop(0)
+        message = queue.pop(0)
         result = None
+        if isinstance(message, events.Event):
+            await handle_event(message, queue, uow)
+        elif isinstance(message, commands.Command):
+            result = await handle_command(message, queue, uow)
+            results.append(result)
+        else:
+            raise Exception(f"Unknown message {message}")
+    return results
+
+
+async def handle_event(
+    event: events.Event,
+    queue: list[Message],
+    uow: unit_of_work.AbstractUnitOfWork[unit_of_work.AbstractProductRepository],
+) -> None:
+    try:
         if isinstance(event, events.OutOfStock):
             handlers.send_out_of_stock_notification(event, uow)
-        elif isinstance(event, events.BatchQuantityChanged):
-            await handlers.change_batch_quantity(event, uow)
-        elif isinstance(event, events.AllocationRequired):
-            result = await handlers.allocate(event, uow)
-        elif isinstance(event, events.BatchCreated):
-            await handlers.add_batch(event, uow)
-        else:
-            raise Exception(f"Unknown event {event}")
-        if result:
-            results.append(result)
         queue.extend(uow.collect_new_events())
-    return results
+    except Exception:
+        return
+
+
+async def handle_command(
+    command: commands.Command,
+    queue: list[Message],
+    uow: unit_of_work.AbstractUnitOfWork[unit_of_work.AbstractProductRepository],
+) -> Any:
+    try:
+        result = None
+        if isinstance(command, commands.CreateBatch):
+            await handlers.add_batch(command, uow)
+        elif isinstance(command, commands.ChangeBatchQuantity):
+            await handlers.change_batch_quantity(command, uow)
+        elif isinstance(command, commands.Allocate):
+            result = await handlers.allocate(command, uow)
+        queue.extend(uow.collect_new_events())
+        return result
+    except Exception:
+        raise
