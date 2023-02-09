@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import Body, Depends, FastAPI, HTTPException
 
 from app.allocation.adapters.repository import AbstractProductRepository
-from app.allocation.domain import events
+from app.allocation.domain import commands
 from app.allocation.routers.dependencies import batch_uow
 from app.allocation.service_layer import messagebus
 from app.allocation.service_layer.handlers import InvalidSku
@@ -27,8 +27,8 @@ async def add_batch(
     eta: date = Body(default=None),
     uow: AbstractUnitOfWork[AbstractProductRepository] = Depends(batch_uow),
 ) -> dict[str, str]:
-    event = events.BatchCreated(batch_id, sku, quantity, eta)
-    await messagebus.handle(event, uow)
+    cmd = commands.CreateBatch(batch_id, sku, quantity, eta)
+    await messagebus.handle(cmd, uow)
     return {"message": "success"}
 
 
@@ -40,8 +40,8 @@ async def allocate(
     uow: AbstractUnitOfWork[AbstractProductRepository] = Depends(batch_uow),
 ) -> dict[str, str]:
     try:
-        event = events.AllocationRequired(line_id, sku, quantity)
-        results = await messagebus.handle(event, uow)
+        cmd = commands.Allocate(line_id, sku, quantity)
+        results = await messagebus.handle(cmd, uow)
         batch_id = results[0]
     except InvalidSku as e:
         raise HTTPException(status_code=400, detail=str(e))

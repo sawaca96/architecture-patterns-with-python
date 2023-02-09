@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import abc
-from typing import Any, Generic, TypeVar
 from collections.abc import Generator
+from typing import Any, Generic, TypeVar
 
 from app.allocation.adapters.db import SESSION_FACTORY
 from app.allocation.adapters.repository import (
     AbstractProductRepository,
     PGProductRepository,
 )
+from app.allocation.domain.commands import Command
 from app.allocation.domain.events import Event
 from app.config import get_config
 
@@ -31,7 +32,7 @@ class AbstractUnitOfWork(abc.ABC, Generic[Repo]):
     async def commit(self) -> None:
         await self._commit()
 
-    def collect_new_events(self) -> Generator[Event, None, None]:
+    def collect_new_events(self) -> Generator[Event | Command, None, None]:
         for product in self.repo._seen:
             while product.events:
                 yield product.events.pop(0)
