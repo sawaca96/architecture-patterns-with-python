@@ -75,6 +75,14 @@ class Product:
             batch = next(b for b in sorted(self.batches) if b.can_allocate(line))
             batch.allocate(line)
             self.version_number += 1
+            self.events.append(
+                events.Allocated(
+                    order_id=line.id,
+                    sku=line.sku,
+                    qty=line.qty,
+                    batch_id=batch.id,
+                )
+            )
             return batch.id
         except StopIteration:
             self.events.append(events.OutOfStock(sku=line.sku))
@@ -85,7 +93,7 @@ class Product:
         batch.qty = qty
         while batch.available_quantity < 0:
             line = batch.deallocate_one()
-            self.events.append(commands.Allocate(line.id, line.sku, line.qty))
+            self.events.append(commands.Allocate(line.sku, line.qty))
 
     def __hash__(self) -> int:
         return hash(self.sku)

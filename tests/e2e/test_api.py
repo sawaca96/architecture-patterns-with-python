@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.allocation.adapters.orm import metadata
-from app.allocation.routers.main import app
+from app.allocation.routers.api import app
 
 
 @pytest.fixture

@@ -64,7 +64,6 @@ class PGProductRepository(AbstractProductRepository):
                 selectinload(models.Product.batches).options(selectinload(models.Batch.allocations))
             )
         )
-        # TODO: joinedload?
         return result.scalar_one_or_none()
 
     async def _get_by_batch_id(self, batch_id: UUID) -> models.Product:

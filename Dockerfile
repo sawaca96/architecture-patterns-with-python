@@ -7,7 +7,8 @@ ENV PYTHONHASHSEED=random \
     POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_CREATE=false \
     WORKDIR=/code 
-ENV PATH="$POETRY_HOME/bin:$PATH" 
+ENV PATH="$POETRY_HOME/bin:$PATH" \
+    PYTHONPATH=$WORKDIR:$PYTHONPATH
 WORKDIR $WORKDIR
 
 FROM base as poetry_installer

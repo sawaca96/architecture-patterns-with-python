@@ -4,13 +4,11 @@ from typing import Any
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlalchemy.orm import clear_mappers
 
 from app.allocation.adapters.db import DB
-from app.allocation.adapters.orm import metadata, start_mappers
-from app.config import get_config
+from app.allocation.adapters.orm import metadata
+from app.config import config
 
-config = get_config()
 db = DB(config.PG_DSN)
 
 
@@ -27,9 +25,7 @@ async def engine() -> AsyncGenerator[AsyncEngine, None]:
     engine = create_async_engine(config.PG_DSN)
     async with engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
-    start_mappers()
     yield engine
-    clear_mappers()
     async with engine.begin() as conn:
         await conn.run_sync(metadata.drop_all)
     await engine.dispose()

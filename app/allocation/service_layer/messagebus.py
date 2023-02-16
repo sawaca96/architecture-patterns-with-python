@@ -32,7 +32,9 @@ async def handle_event(
 ) -> None:
     try:
         if isinstance(event, events.OutOfStock):
-            handlers.send_out_of_stock_notification(event, uow)
+            handlers.send_out_of_stock_notification(event)
+        elif isinstance(event, events.Allocated):
+            await handlers.publish_allocated_event(event)
         queue.extend(uow.collect_new_events())
     except Exception:
         return
