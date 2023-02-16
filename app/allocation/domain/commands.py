@@ -23,6 +23,5 @@ class ChangeBatchQuantity(Command):
 
 @dataclass
 class Allocate(Command):
-    order_id: UUID
     sku: str
     qty: int

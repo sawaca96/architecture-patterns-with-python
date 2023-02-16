@@ -7,9 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.allocation.adapters.db import DB
 from app.allocation.adapters.repository import AbstractProductRepository, PGProductRepository
 from app.allocation.service_layer.unit_of_work import AbstractUnitOfWork, ProductUnitOfWork
-from app.config import get_config
-
-config = get_config()
+from app.config import config
 
 
 @functools.lru_cache

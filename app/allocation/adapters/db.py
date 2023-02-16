@@ -5,9 +5,7 @@ from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession, async_scoped_session, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.config import get_config
-
-config = get_config()
+from app.config import config
 
 ENGINE = create_async_engine(config.PG_DSN, echo=False)
 SESSION_FACTORY = async_scoped_session(

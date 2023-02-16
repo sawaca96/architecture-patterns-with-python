@@ -49,7 +49,7 @@ class TestAddBatch:
     async def test_for_new_product(self) -> None:
         uow = FakeUnitOfWork()
         await messagebus.handle(commands.CreateBatch(uuid4(), "CRUNCHY-ARMCHAIR", 100), uow)
-        assert uow.repo.get("CRUNCHY-ARMCHAIR") is not None
+        assert await uow.repo.get("CRUNCHY-ARMCHAIR") is not None
         assert uow.committed
 
     async def test_for_existing_product(self) -> None:
@@ -79,25 +79,25 @@ class TestAllocate:
             ),
             uow,
         )
-        results = await messagebus.handle(commands.Allocate(uuid4(), "COMPLICATED-LAMP", 10), uow)
+        results = await messagebus.handle(commands.Allocate("COMPLICATED-LAMP", 10), uow)
         assert results.pop(0) == UUID("b4cf5213-6e1f-46cc-8302-aac1f12ac617")
 
     async def test_errors_for_invalid_sku(self) -> None:
         uow = FakeUnitOfWork()
         with pytest.raises(handlers.InvalidSku, match="Invalid sku NONEXISTENTSKU"):
-            await messagebus.handle(commands.Allocate(uuid4(), "NONEXISTENTSKU", 10), uow)
+            await messagebus.handle(commands.Allocate("NONEXISTENTSKU", 10), uow)
 
     async def test_commits(self) -> None:
         uow = FakeUnitOfWork()
         await messagebus.handle(commands.CreateBatch(uuid4(), "OMINOUS-MIRROR", 100, None), uow)
-        await messagebus.handle(commands.Allocate(uuid4(), "OMINOUS-MIRROR", 10), uow)
+        await messagebus.handle(commands.Allocate("OMINOUS-MIRROR", 10), uow)
         assert uow.committed
 
     async def test_sends_email_on_out_of_stock_error(self) -> None:
         uow = FakeUnitOfWork()
         await messagebus.handle(commands.CreateBatch(uuid4(), "POPULAR-CURTAINS", 9, None), uow)
         with mock.patch("app.allocation.adapters.email.send") as mock_send_mail:
-            await messagebus.handle(commands.Allocate(uuid4(), "POPULAR-CURTAINS", 10), uow)
+            await messagebus.handle(commands.Allocate("POPULAR-CURTAINS", 10), uow)
             assert mock_send_mail.call_args == mock.call(
                 "stock@made.com", "Out of stock for POPULAR-CURTAINS"
             )
@@ -128,8 +128,8 @@ class TestChangeBatchQuantity:
                 UUID("874c6d0d-84e6-4307-b9d5-e23ec78bb727"), "INDIFFERENT-TABLE", 50, None
             ),
             commands.CreateBatch(uuid4(), "INDIFFERENT-TABLE", 50, date.today()),
-            commands.Allocate(uuid4(), "INDIFFERENT-TABLE", 20),
-            commands.Allocate(uuid4(), "INDIFFERENT-TABLE", 20),
+            commands.Allocate("INDIFFERENT-TABLE", 20),
+            commands.Allocate("INDIFFERENT-TABLE", 20),
         ]
         for e in event_history:
             await messagebus.handle(e, uow)

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import Body, Depends, FastAPI, HTTPException
 
+from app.allocation.adapters.orm import start_mappers
 from app.allocation.adapters.repository import AbstractProductRepository
 from app.allocation.domain import commands
 from app.allocation.routers.dependencies import batch_uow
@@ -11,7 +12,7 @@ from app.allocation.service_layer.handlers import InvalidSku
 from app.allocation.service_layer.unit_of_work import AbstractUnitOfWork
 
 app = FastAPI()
-# start_mappers() # TODO: 운영환경에서는 실행되어야 함
+start_mappers()
 
 
 @app.get("/")
@@ -34,13 +35,12 @@ async def add_batch(
 
 @app.post("/allocate", response_model=dict[str, str], status_code=201)
 async def allocate(
-    line_id: UUID = Body(),
     sku: str = Body(),
     quantity: int = Body(),
     uow: AbstractUnitOfWork[AbstractProductRepository] = Depends(batch_uow),
 ) -> dict[str, str]:
     try:
-        cmd = commands.Allocate(line_id, sku, quantity)
+        cmd = commands.Allocate(sku, quantity)
         results = await messagebus.handle(cmd, uow)
         batch_id = results[0]
     except InvalidSku as e:
