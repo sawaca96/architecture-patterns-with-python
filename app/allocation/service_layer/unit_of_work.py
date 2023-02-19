@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import abc
-from collections.abc import Generator
 from typing import Any, Generic, TypeVar
 
 from app.allocation.adapters.db import SESSION_FACTORY
@@ -9,8 +8,6 @@ from app.allocation.adapters.repository import (
     AbstractProductRepository,
     PGProductRepository,
 )
-from app.allocation.domain.commands import Command
-from app.allocation.domain.events import Event
 
 Repo = TypeVar("Repo", bound=AbstractProductRepository)
 
@@ -26,16 +23,8 @@ class AbstractUnitOfWork(abc.ABC, Generic[Repo]):
     def repo(self) -> Repo:
         raise NotImplementedError
 
-    async def commit(self) -> None:
-        await self._commit()
-
-    def collect_new_events(self) -> Generator[Event | Command, None, None]:
-        for product in self.repo.seen:
-            while product.events:
-                yield product.events.pop(0)
-
     @abc.abstractmethod
-    async def _commit(self) -> None:
+    async def commit(self) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -57,7 +46,7 @@ class ProductUnitOfWork(AbstractUnitOfWork[AbstractProductRepository]):
         await super().__aexit__(*args)
         await SESSION_FACTORY.remove()
 
-    async def _commit(self) -> None:
+    async def commit(self) -> None:
         await self._session.commit()
 
     async def rollback(self) -> None:

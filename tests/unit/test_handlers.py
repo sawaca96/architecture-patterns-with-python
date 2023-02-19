@@ -16,13 +16,13 @@ class FakeRepository(repository.AbstractProductRepository):
         super().__init__()
         self._products = set(products)
 
-    async def _add(self, product: models.Product) -> None:
+    async def add(self, product: models.Product) -> None:
         self._products.add(product)
 
-    async def _get(self, sku: str) -> models.Product:
+    async def get(self, sku: str) -> models.Product:
         return next((p for p in self._products if p.sku == sku), None)
 
-    async def _get_by_batch_id(self, batch_id: UUID) -> models.Product:
+    async def get_by_batch_id(self, batch_id: UUID) -> models.Product:
         return next((p for p in self._products for b in p.batches if b.id == batch_id), None)
 
 
@@ -38,7 +38,7 @@ class FakeUnitOfWork(unit_of_work.AbstractUnitOfWork[repository.AbstractProductR
     def repo(self) -> repository.AbstractProductRepository:
         return self._repo
 
-    async def _commit(self) -> None:
+    async def commit(self) -> None:
         self.committed = True
 
     async def rollback(self) -> None:

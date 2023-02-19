@@ -1,8 +1,5 @@
 from datetime import date, timedelta
-from uuid import UUID
 
-from app.allocation.domain import events
-from app.allocation.domain.events import OutOfStock
 from app.allocation.domain.models import Batch, OrderLine, Product
 
 
@@ -60,7 +57,6 @@ def test_raises_out_of_stock_exception_if_cannot_allocate() -> None:
 
     # When & Then
     allocation = product.allocate(OrderLine(sku="SMALL-FORK", qty=1))
-    assert product.events[-1] == OutOfStock(sku="SMALL-FORK")
     assert allocation is None
 
 
@@ -76,22 +72,3 @@ def test_increment_version_number() -> None:
 
     # Then
     assert product.version_number == 8
-
-
-def test_outputs_allocated_event() -> None:
-    # Given
-    batch = Batch(id=UUID("77ff6655-1a8d-477d-9daf-dfd339d309c5"), sku="RETRO-LAMPSHADE", qty=100)
-    line = OrderLine(id=UUID("60f44705-15f6-44e7-947f-302109d8cd99"), sku="RETRO-LAMPSHADE", qty=10)
-    product = Product(sku="RETRO-LAMPSHADE", batches=[batch])
-
-    # When
-    product.allocate(line)
-
-    # Then
-    expected = events.Allocated(
-        order_id=UUID("60f44705-15f6-44e7-947f-302109d8cd99"),
-        sku="RETRO-LAMPSHADE",
-        qty=10,
-        batch_id=UUID("77ff6655-1a8d-477d-9daf-dfd339d309c5"),
-    )
-    assert product.events[-1] == expected

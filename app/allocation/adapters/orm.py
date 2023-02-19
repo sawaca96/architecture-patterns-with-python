@@ -1,7 +1,6 @@
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.event import listens_for
-from sqlalchemy.orm import QueryContext, registry, relationship
+from sqlalchemy.orm import registry, relationship
 
 from app.allocation.domain import models
 
@@ -58,8 +57,3 @@ def start_mappers() -> None:
         properties={"batches": relationship(batches_mapper)},
         version_id_col=products.c.version_number,
     )
-
-
-@listens_for(models.Product, "load")  # type: ignore
-def receive_load(product: models.Product, context: QueryContext) -> None:
-    product.events = list()
