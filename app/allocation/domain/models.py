@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 
 @dataclass(unsafe_hash=True, kw_only=True)
-class OrderLine:
+class Order:
     id: UUID = field(default_factory=uuid4)
     sku: str
     qty: int
@@ -18,7 +18,7 @@ class Batch:
     sku: str
     eta: date = None
     qty: int
-    allocations: set[OrderLine] = field(default_factory=lambda: set())
+    allocations: set[Order] = field(default_factory=lambda: set())
 
     def __repr__(self) -> str:
         return f"<Batch {self.id}>"
@@ -38,27 +38,23 @@ class Batch:
             return True
         return self.eta > other.eta
 
-    def allocate(self, line: OrderLine) -> None:
-        if self.can_allocate(line):
-            self.allocations.add(line)
+    def allocate(self, order: Order) -> None:
+        if self.can_allocate(order):
+            self.allocations.add(order)
 
-    def deallocate_one(self) -> OrderLine:
+    def deallocate_one(self) -> Order:
         return self.allocations.pop()
 
     @property
     def allocated_quantity(self) -> int:
-        return sum(line.qty for line in self.allocations)
+        return sum(order.qty for order in self.allocations)
 
     @property
     def available_quantity(self) -> int:
         return self.qty - self.allocated_quantity
 
-    def can_allocate(self, line: OrderLine) -> bool:
-        return (
-            self.sku == line.sku
-            and self.available_quantity >= line.qty
-            and line not in self.allocations
-        )
+    def can_allocate(self, order: Order) -> bool:
+        return self.sku == order.sku and self.available_quantity >= order.qty and order not in self.allocations
 
 
 @dataclass(kw_only=True)
@@ -67,23 +63,23 @@ class Product:
     batches: list[Batch]
     version_number: int = 0
 
-    def allocate(self, line: OrderLine) -> UUID:
+    def allocate(self, order: Order) -> UUID:
         try:
-            batch = next(b for b in sorted(self.batches) if b.can_allocate(line))
-            batch.allocate(line)
+            batch = next(b for b in sorted(self.batches) if b.can_allocate(order))
+            batch.allocate(order)
             self.version_number += 1
             return batch.id
         except StopIteration:
             return None
 
-    def change_batch_quantity(self, id: UUID, qty: int) -> list[OrderLine]:
+    def change_batch_quantity(self, id: UUID, qty: int) -> list[Order]:
         batch = next(b for b in self.batches if b.id == id)
         batch.qty = qty
-        deallocated_lines = []
+        deallocated_orders = []
         while batch.available_quantity < 0:
-            line = batch.deallocate_one()
-            deallocated_lines.append(line)
-        return deallocated_lines
+            order = batch.deallocate_one()
+            deallocated_orders.append(order)
+        return deallocated_orders
 
     def __hash__(self) -> int:
         return hash(self.sku)

@@ -35,7 +35,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 fix = true
 
 [tool.ruff.isort]
@@ -45,7 +45,7 @@ known-first-party = ["app"]
 "__init__.py" = ["E402"]
 
 [tool.black]
-line-length = 100
+line-length = 120
 
 [tool.mypy]
 python_version = "3.10" 

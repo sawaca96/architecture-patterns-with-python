@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture()
 async def client() -> AsyncGenerator[TestClient, None]:
-    from app.allocation.routers.api import app
+    from app.allocation.entrypoints.restapi import app
 
     yield TestClient(app)
 
