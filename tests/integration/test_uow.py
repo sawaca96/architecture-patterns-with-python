@@ -21,10 +21,11 @@ async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Any]:
 
 
 @pytest.fixture(autouse=True)
-async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
-    yield session
-    for table in reversed(metadata.sorted_tables):
-        await session.execute(table.delete())
+async def clear_db(engine: AsyncEngine) -> AsyncGenerator[Any, Any]:
+    yield engine
+    async with engine.begin() as conn:
+        for table in reversed(metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 async def test_uow_can_save_product(session: AsyncSession) -> None:
@@ -44,7 +45,7 @@ async def test_uow_can_save_product(session: AsyncSession) -> None:
 
 async def test_uow_can_retrieve_product_with_batch_and_allocations(session: AsyncSession) -> None:
     # Given
-    await session.execute(sa.text("INSERT INTO product (sku, version_number) VALUES " "('RETRO-CLOCK', 1)"))
+    await session.execute(sa.text("INSERT INTO product (sku, version_number) VALUES ('RETRO-CLOCK', 1)"))
     await session.execute(
         sa.text(
             "INSERT INTO batch (id, sku, qty, eta) VALUES "

@@ -20,7 +20,7 @@ def event_loop() -> Generator[Any, Any, Any]:
     loop.close()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 async def engine() -> AsyncGenerator[AsyncEngine, None]:
     engine = create_async_engine(config.PG_DSN)
     async with engine.begin() as conn:

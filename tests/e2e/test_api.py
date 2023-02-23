@@ -32,10 +32,11 @@ async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Any]:
 
 
 @pytest.fixture(autouse=True)
-async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
-    yield session
-    for table in reversed(metadata.sorted_tables):
-        await session.execute(table.delete())
+async def clear_db(engine: AsyncEngine) -> AsyncGenerator[Any, Any]:
+    yield engine
+    async with engine.begin() as conn:
+        for table in reversed(metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 async def test_add_batch_returns_201(client: AsyncClient, session: AsyncSession) -> None:

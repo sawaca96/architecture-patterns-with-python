@@ -40,10 +40,11 @@ async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Any]:
 
 
 @pytest.fixture(autouse=True)
-async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
-    yield session
-    for table in reversed(metadata.sorted_tables):
-        await session.execute(table.delete())
+async def clear_db(engine: AsyncEngine) -> AsyncGenerator[Any, Any]:
+    yield engine
+    async with engine.begin() as conn:
+        for table in reversed(metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 async def test_allocate_leading_to_add_row_to_allocations_view(client: AsyncClient) -> None:
