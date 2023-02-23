@@ -15,7 +15,8 @@ from app.config import config
 start_mappers()
 db = DB(config.PG_DSN)
 
-
+# TODO: prevent event loss
+# TODO: use same transaction, or make idempotent
 async def main() -> None:
     pubsub = redis.pubsub(ignore_subscribe_messages=True)
     await pubsub.subscribe(BATCH_QUANTITY_CHANGED_CHANNEL, ORDER_ALLOCATED_CHANNEL, ORDER_DEALLOCATED_CHANNEL)
