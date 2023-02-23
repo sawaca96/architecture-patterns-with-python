@@ -32,7 +32,7 @@ async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Any]:
 
 
 @pytest.fixture(autouse=True)
-async def clear_db(engine: AsyncEngine) -> AsyncGenerator[Any, Any]:
+async def clear_db(engine: AsyncEngine) -> AsyncGenerator[AsyncEngine, Any]:
     yield engine
     async with engine.begin() as conn:
         for table in reversed(metadata.sorted_tables):

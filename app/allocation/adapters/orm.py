@@ -33,7 +33,7 @@ allocation_table = sa.Table(
     sa.UniqueConstraint("order_id", "batch_id"),
 )
 
-product = sa.Table(
+product_table = sa.Table(
     "product",
     metadata,
     sa.Column("sku", sa.String, primary_key=True),
@@ -60,7 +60,7 @@ def start_mappers() -> None:
     )
     mapper_registry.map_imperatively(
         models.Product,
-        product,
+        product_table,
         properties={"batches": relationship(batches_mapper)},
-        version_id_col=product.c.version_number,
+        version_id_col=product_table.c.version_number,
     )

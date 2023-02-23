@@ -5,11 +5,8 @@ from typing import Any
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from app.allocation.adapters.db import DB
 from app.allocation.adapters.orm import metadata
 from app.config import config
-
-db = DB(config.PG_DSN)
 
 
 @pytest.fixture(scope="session")
