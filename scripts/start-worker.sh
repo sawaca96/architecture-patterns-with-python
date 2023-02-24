@@ -4,4 +4,4 @@ set -e
 
 poetry install --sync
 
-python app/allocation/routers/worker.py
+python app/allocation/entrypoints/run_worker.py

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.allocation.adapters.db import DB
 from app.allocation.adapters.repository import AbstractProductRepository, PGProductRepository
-from app.allocation.service_layer.unit_of_work import AbstractUnitOfWork, ProductUnitOfWork
+from app.allocation.service_layer.unit_of_work import AbstractUnitOfWork, PGUnitOfWork
 from app.config import config
 
 
@@ -26,5 +26,5 @@ def repository(
     return PGProductRepository(session)
 
 
-def batch_uow() -> AbstractUnitOfWork[AbstractProductRepository]:
-    return ProductUnitOfWork()
+def batch_uow() -> AbstractUnitOfWork:
+    return PGUnitOfWork()

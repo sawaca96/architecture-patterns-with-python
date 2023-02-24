@@ -1,12 +1,11 @@
 from typing import Protocol, TypeVar
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import orjson
 
 from app.allocation.adapters import email
 from app.allocation.adapters.redis import redis
-from app.allocation.adapters.repository import AbstractProductRepository
-from app.allocation.constants import LINE_ALLOCATED_CHANNEL
+from app.allocation.constants import ORDER_ALLOCATED_CHANNEL, ORDER_DEALLOCATED_CHANNEL
 from app.allocation.domain import commands, events, models
 from app.allocation.service_layer import unit_of_work
 
@@ -25,15 +24,15 @@ class Handler(Protocol[P, R]):
 
 
 class CreateBatchCmdHandler(Handler[commands.CreateBatch, models.Batch]):
-    def __init__(self, uow: unit_of_work.AbstractUnitOfWork[AbstractProductRepository]) -> None:
+    def __init__(self, uow: unit_of_work.AbstractUnitOfWork) -> None:
         self._uow = uow
 
     async def handle(self, cmd: commands.CreateBatch) -> models.Batch:
         async with self._uow:
-            product = await self._uow.repo.get(cmd.sku)
+            product = await self._uow.products.get(cmd.sku)
             if product is None:
                 product = models.Product(sku=cmd.sku, batches=[])
-                await self._uow.repo.add(product)
+                await self._uow.products.add(product)
             batch = models.Batch(id=cmd.id, sku=cmd.sku, qty=cmd.qty, eta=cmd.eta)
             product.batches.append(batch)
             await self._uow.commit()
@@ -41,20 +40,20 @@ class CreateBatchCmdHandler(Handler[commands.CreateBatch, models.Batch]):
 
 
 class AllocateCmdHandler(Handler[commands.Allocate, UUID]):
-    def __init__(self, uow: unit_of_work.AbstractUnitOfWork[AbstractProductRepository]) -> None:
+    def __init__(self, uow: unit_of_work.AbstractUnitOfWork) -> None:
         self._uow = uow
 
     async def handle(self, cmd: commands.Allocate) -> UUID:
-        line = models.OrderLine(id=uuid4(), sku=cmd.sku, qty=cmd.qty)
+        order = models.Order(id=cmd.order_id, sku=cmd.sku, qty=cmd.qty)
         async with self._uow:
-            product = await self._uow.repo.get(line.sku)
+            product = await self._uow.products.get(order.sku)
             if product is None:
-                raise InvalidSku(f"Invalid sku {line.sku}")
-            batch_id = product.allocate(line)
+                raise InvalidSku(f"Invalid sku {order.sku}")
+            batch_id = product.allocate(order)
             if batch_id is None:
-                self._send_email(events.OutOfStock(line.sku))
+                self._send_email(events.OutOfStock(order.sku))
             else:
-                await self._publish(events.Allocated(line.id, line.sku, line.qty, batch_id))
+                await self._publish(events.Allocated(order.id, order.sku, order.qty, batch_id))
             await self._uow.commit()
             return batch_id
 
@@ -63,7 +62,7 @@ class AllocateCmdHandler(Handler[commands.Allocate, UUID]):
 
     async def _publish(self, event: events.Allocated) -> None:
         await redis.publish(
-            LINE_ALLOCATED_CHANNEL,
+            ORDER_ALLOCATED_CHANNEL,
             orjson.dumps(
                 dict(
                     order_id=str(event.order_id),
@@ -75,14 +74,24 @@ class AllocateCmdHandler(Handler[commands.Allocate, UUID]):
         )
 
 
-class ChangeBatchQuantityCmdHandler(Handler[commands.ChangeBatchQuantity, list[commands.Allocate]]):
-    def __init__(self, uow: unit_of_work.AbstractUnitOfWork[AbstractProductRepository]) -> None:
+class ChangeBatchQuantityCmdHandler(Handler[commands.ChangeBatchQuantity, None]):
+    def __init__(self, uow: unit_of_work.AbstractUnitOfWork) -> None:
         self._uow = uow
 
-    async def handle(self, cmd: commands.ChangeBatchQuantity) -> list[commands.Allocate]:
+    async def handle(self, cmd: commands.ChangeBatchQuantity) -> None:
         async with self._uow:
-            product = await self._uow.repo.get_by_batch_id(cmd.id)
-            lines = product.change_batch_quantity(cmd.id, cmd.qty)
-            results = [commands.Allocate(line.sku, line.qty) for line in lines]
+            product = await self._uow.products.get_by_batch_id(cmd.id)
+            orders = product.change_batch_quantity(cmd.id, cmd.qty)
+            deallocated_events = [events.Deallocated(order.id, order.sku, order.qty) for order in orders]
+            if deallocated_events:
+                await self._publish(deallocated_events)
             await self._uow.commit()
-            return results
+
+    async def _publish(self, event: list[events.Deallocated]) -> None:
+        pipe = redis.pipeline()
+        for e in event:
+            pipe.publish(
+                ORDER_DEALLOCATED_CHANNEL,
+                orjson.dumps(dict(order_id=str(e.order_id), sku=e.sku, qty=e.qty)),
+            )
+        await pipe.execute()

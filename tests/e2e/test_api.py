@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from datetime import date
 from typing import Any
@@ -10,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.allocation.adapters.orm import metadata
-from app.allocation.routers.api import app
+from app.allocation.entrypoints.restapi import app
 
 
 @pytest.fixture
@@ -31,39 +32,29 @@ async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, Any]:
 
 
 @pytest.fixture(autouse=True)
-async def clear_db(session: AsyncSession) -> AsyncGenerator[Any, Any]:
-    yield session
-    for table in reversed(metadata.sorted_tables):
-        await session.execute(table.delete())
+async def clear_db(engine: AsyncEngine) -> AsyncGenerator[AsyncEngine, Any]:
+    yield engine
+    async with engine.begin() as conn:
+        for table in reversed(metadata.sorted_tables):
+            await conn.execute(table.delete())
 
 
 async def test_add_batch_returns_201(client: AsyncClient, session: AsyncSession) -> None:
     # Given
-    await session.execute(
-        sa.text("INSERT INTO products (sku, version_number) VALUES " "('SKU', 1)")
-    )
+    await session.execute(sa.text("INSERT INTO product (sku, version_number) VALUES " "('SKU', 1)"))
     await session.commit()
 
     # When
-    res = await client.post(
-        "/batches", json={"batch_id": str(uuid4()), "sku": "SKU", "quantity": 3}
-    )
+    res = await client.post("/batches", json={"sku": "SKU", "quantity": 3})
 
     # Then
     assert res.status_code == 201
-    assert res.json() == {"message": "success"}
 
 
-async def test_allocate_api_returns_201_and_allocated_batch(
-    session: AsyncSession, client: AsyncClient
-) -> None:
+async def test_allocate_api_returns_201_and_order_is_allocated(session: AsyncSession, client: AsyncClient) -> None:
     # Given: create 3 batches with different eta. 2 batches have same sku
-    await session.execute(
-        sa.text("INSERT INTO products (sku, version_number) VALUES " "('SKU', 1)")
-    )
-    await session.execute(
-        sa.text("INSERT INTO products (sku, version_number) VALUES " "('OTHER-SKU', 1)")
-    )
+    await session.execute(sa.text("INSERT INTO product (sku, version_number) VALUES " "('SKU', 1)"))
+    await session.execute(sa.text("INSERT INTO product (sku, version_number) VALUES " "('OTHER-SKU', 1)"))
     await session.commit()
     batches = [
         (UUID("d236f2aa-8f61-4aeb-9cbd-eade21736457"), "SKU", 100, date(2011, 1, 2)),
@@ -78,11 +69,10 @@ async def test_allocate_api_returns_201_and_allocated_batch(
         await session.commit()
 
     # When
-    res = await client.post(
-        "/allocate", json={"line_id": str(uuid4()), "sku": "SKU", "quantity": 3}
-    )
+    res = await client.post("/allocate", json={"sku": "SKU", "quantity": 3})
+    await asyncio.sleep(0.1)  # wait for worker get event
 
-    # Then: order line is allocated to the batch with earliest eta, and status code 201
+    # Then: order is allocated to the batch with earliest eta, and status code 201
     assert res.status_code == 201
     assert res.json() == {"batch_id": "f6e16413-441e-40c0-b2eb-e826b080b448"}
 
@@ -90,11 +80,12 @@ async def test_allocate_api_returns_201_and_allocated_batch(
 async def test_allocate_api_returns_400_and_error_message_if_invalid_sku(
     client: AsyncClient,
 ) -> None:
+    # Given
+    order_id = uuid4()
+
     # When: request with invalid sku
-    res = await client.post(
-        "/allocate", json={"line_id": str(uuid4()), "sku": "NOT-EXIST-SKU", "quantity": 3}
-    )
+    res1 = await client.post("/allocate", json={"order_id": str(order_id), "sku": "NOT-EXIST-SKU", "quantity": 3})
 
     # Then: status code 400 and error message
-    assert res.status_code == 400
-    assert res.json() == {"detail": "Invalid sku NOT-EXIST-SKU"}
+    assert res1.status_code == 400
+    assert res1.json() == {"detail": "Invalid sku NOT-EXIST-SKU"}
